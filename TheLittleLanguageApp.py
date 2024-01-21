@@ -6,11 +6,27 @@ import os
 import random
 import pygame
 
-PathToSounds = "C:/Users/bohda\Documents/Python Codes/TheThousand/Audios/"
-PathToImages = "C:/Users/bohda/Documents/Python Codes/TheThousand/Images/"
+PathToSounds = "C:/Users/bohda\Documents/Python Codes/TheLittleLangaugeApp/Audios/"
+PathToImages = "C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images/"
 
 # Support Functions
-
+Regular_Verbs_Spanish = ["Abandonar - to abandon", "Abrazar - to hug", "Averiguar - to find out", "Bailar - to dance", "Bañar - to bathe", "Caminar - to walk", "Cantar - to sing",
+"Causar - to cause", "Cuidar - to take care", "Degustar - to taste", "Enviar - to send", "Hablar - to speak", "Luchar - to fight",
+"Peinar - to comb", "Tomar - to take/to drink", "Aprender - to learn", "Aparecer - to appear",
+"Barrer - to sweep", "Beber - to drink",
+"Comer - to eat", "Correr - to run",
+"Coser - to sew", "Defender - to depend",
+"Ofender - to offend", "Temer - to fear",
+"Vender - to sell", "Abrir – to open",
+"Decidir – to decide", "Descubrir – to discover",
+"Discutir – to argue", "Dividir– to split/ to divide",
+"Partir – to divide/to chop", "Partir – to leave",
+"Permitir – to allow/to permit", "Persuadir – to persuade",
+"Recibir – to get/to obtain", "Subir – to go up/to raise"]
+Endings_AR = ("o","as","a","amos","áis","an")
+Endings_ER = ("o","es","e","emos","eis","en")
+Endings_IR = ("o","es","e","imos","ís","en")
+Persona = ("Yo","Tú","Él-Ella-Usted","Nosotros","Vosotros","Ustedes")
 def play_sound(SOUND):
     pygame.mixer.init()
     pygame.mixer.music.load(PathToSounds + SOUND)
@@ -297,6 +313,65 @@ def Vocabulary_Zone_Fragments():
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
 
+def Regularo_Verbos_Screen():
+    clear_window(window)
+    Table_Data = [("",'-ar','-er',"-ir"),
+       ("Yo",'am-o','com-o',"viv-o"),
+       ("Tú",'am-as','com-es',"viv-es"),
+       ("Él-Ella-Usted",'am-a','com-e',"viv-e"),
+       ("Nosotros-as",'am-amos','com-emos',"viv-imos"),
+       ("Vosotors-as",'am-áis','com-éis',"viv-ís"),
+       ("Ellos-Ellas-Ustedes",'am-an','com-en',"viv-en")]
+    
+    total_rows = len(Table_Data)
+    total_columns = len(Table_Data[0])
+    # code for creating table
+    for row_i in range(total_rows):
+        for col_j in range(total_columns):
+                
+            Item_In_Table = tk.Entry(window, width=20, fg='blue',
+                            font=('Arial',16,'bold'))
+                
+            Item_In_Table.grid(row=row_i, column=col_j)
+            Item_In_Table.insert(tk.END, Table_Data[row_i][col_j])
+    
+def Reuglaro_Verbos_Examen_Screen():
+    clear_window(window)
+    def check_answers(answers):
+        for numero in range(10):
+            WRITE_ANSWERS = tk.Label(text=answers[numero])
+            WRITE_ANSWERS.grid(row=numero,column=2)
+    Answer_Values = list()
+    for i in range(10):
+        Spanish_Verb_Chosen = Regular_Verbs_Spanish[random.randint(0,len(Regular_Verbs_Spanish)-1)]
+        Persona_Number = random.randint(0,len(Persona)-1)
+        Persona_Chosen = Persona[Persona_Number]
+        Spanish_Verb = Spanish_Verb_Chosen.split("r ")[0]
+        Spanish_Verb_Fixed = Spanish_Verb + "r"
+        Verb_Standard = tk.Label(text=Persona_Chosen + " " + Spanish_Verb + "r")
+        Verb_Standard.grid(row=i,column=0)
+        Answer_Item = tk.Entry()
+        Answer_Item.grid(row=i,column=1)
+        
+        if Spanish_Verb_Fixed[-2:] == "ar":
+            Ending_Letters = Endings_AR[Persona_Number]
+        elif Spanish_Verb_Fixed[-2:] == "er":
+            Ending_Letters = Endings_ER[Persona_Number]
+        elif Spanish_Verb_Fixed[-2:] == "ir":
+            Ending_Letters = Endings_IR[Persona_Number]
+        else:
+            Ending_Letters = "NO"
+
+        Answer_Values.append(Spanish_Verb_Fixed[:-2]+ Ending_Letters)
+    Button_Check_It = tk.Button(text="Check Answers", command=lambda: check_answers(Answer_Values))
+    Button_Check_It.grid(row=99,column=0)
+
+    Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
+    Main_Menu_Button.grid(row=1000,column=0)
+
+
+
+
 def Main_Menu_Screen():
     clear_window(window)
     Label_Home_Screen = tk.Label(window, text="The Thousand")
@@ -317,18 +392,27 @@ def Main_Menu_Screen():
     Button_Activity_5 = tk.Button(window, text = "vocabulario",command=Vocabulary_Zone_Fragments)
     Button_Activity_5.grid(row=5,column=1)
 
-    Button_Activity_6 = tk.Button(window, text = "Menú configuración", command=Menú_configuración)
+    Button_Activity_6 = tk.Button(window, text = "la gramática - regular verbos", command=Regularo_Verbos_Screen)
     Button_Activity_6.grid(row=6,column=1)
+
+    Button_Activity_7 = tk.Button(window, text = "practicar", command=Reuglaro_Verbos_Examen_Screen)
+    Button_Activity_7.grid(row=6,column=2)
+
+    Button_Activity_8 = tk.Button(window, text = "el cuento", command=Menú_configuración)
+    Button_Activity_8.grid(row=7,column=1)
+
+    Button_Activity_9 = tk.Button(window, text = "Menú configuración", command=Menú_configuración)
+    Button_Activity_9.grid(row=8,column=1)
     
 # Working On this part
 
 window = tk.Tk()
-window.title("The Thousand")
+window.title("The Little Language App")
 window.geometry("1920x1080")
 
-images_path = 'C:/Users/bohda/Documents/Python Codes/TheThousand/Images'
+images_path = 'C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images'
 image_files = get_image_filenames(images_path)
-sounds_path = 'C:/Users/bohda/Documents/Python Codes/TheThousand/Audios'
+sounds_path = 'C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Audios'
 sound_files = get_sound_filenames(sounds_path)
 
 Main_Menu_Screen()
