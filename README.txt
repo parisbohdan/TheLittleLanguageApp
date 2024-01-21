@@ -1,6 +1,6 @@
-The Thousand 
+The Little Language App
 
-A language learning journey app starting from no knowledge and working up through various exercises gaining XP and acheivements
+A language learning journey app starting from no knowledge and working up through various exercises gaining XP and acheivements (aiming to start with Spanish going to A1-A2-B1-B2-C1-C2 level then moving to other languages)
 They say the best way of learning is teaching and after that it is all about engagement.
 This project will remain free as long as there are no issues with any licences. Images may have to be taken from the web.
 This project will aim to have at least 5 pictures representing each image.
