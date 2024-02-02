@@ -1,0 +1,13 @@
+bin:papelera
+glass:vidrio
+chair:silla
+wheel:rueda
+my:mi
+answer:contesto
+party:fiesta
+happy:feliz
+hug:abrazo
+explain:explico
+bed:camba 
+plate:plato
+

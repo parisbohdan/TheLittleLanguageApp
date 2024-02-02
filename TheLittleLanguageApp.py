@@ -2,9 +2,13 @@ import tkinter as tk
 import time
 import pyautogui
 from PIL import Image, ImageTk
+from tkinter import PhotoImage
 import os
 import random
 import pygame
+import sqlite3
+db_conn = sqlite3.connect('Database/TLLA.db')
+db_curs = db_conn.cursor()
 
 PathToSounds = "C:/Users/bohda\Documents/Python Codes/TheLittleLangaugeApp/Audios/"
 PathToImages = "C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images/"
@@ -27,6 +31,71 @@ Endings_AR = ("o","as","a","amos","áis","an")
 Endings_ER = ("o","es","e","emos","eis","en")
 Endings_IR = ("o","es","e","imos","ís","en")
 Persona = ("Yo","Tú","Él-Ella-Usted","Nosotros","Vosotros","Ustedes")
+
+############################## The following code is thanks to https://stackoverflow.com/users/8295318/squareroot17 and chatGPT 4.
+class ToolTip(object):
+
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+        self.id = None
+        self.x = self.y = 0
+
+    def showtexttip(self, text):
+        "Display text in tooltip window"
+        self.text = text
+        if self.tipwindow or not self.text:
+            return
+        self._showtip_common()
+        label = tk.Label(self.tipwindow, text=self.text, justify=tk.LEFT,
+                         background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                         font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def showimagetip(self, image_path):
+        "Display image in tooltip window"
+        self.image_path = image_path
+        if self.tipwindow or not self.image_path:
+            return
+        self._showtip_common()
+        self.image = PhotoImage(file=self.image_path)
+        label = tk.Label(self.tipwindow, image=self.image, background="#ffffe0", relief=tk.SOLID, borderwidth=1)
+        label.image = self.image  # Keep a reference!
+        label.pack(ipadx=1)
+
+    def _showtip_common(self):
+        x, y, cx, cy = self.widget.bbox("insert")
+        x = x + self.widget.winfo_rootx() + 57
+        y = y + cy + self.widget.winfo_rooty() + 27
+        self.tipwindow = tk.Toplevel(self.widget)
+        self.tipwindow.wm_overrideredirect(1)
+        self.tipwindow.wm_geometry("+%d+%d" % (x, y))
+
+    def hidetip(self):
+        tw = self.tipwindow
+        self.tipwindow = None
+        if tw:
+            tw.destroy()
+
+def CreateTextToolTip(widget, text):
+    toolTip = ToolTip(widget)
+    def enter(event):
+        toolTip.showtexttip(text)
+    def leave(event):
+        toolTip.hidetip()
+    widget.bind('<Enter>', enter)
+    widget.bind('<Leave>', leave)
+
+def CreateImageToolTip(widget, image_path):
+    toolTip = ToolTip(widget)
+    def enter(event):
+        toolTip.showimagetip(image_path)
+    def leave(event):
+        toolTip.hidetip()
+    widget.bind('<Enter>', enter)
+    widget.bind('<Leave>', leave)
+
+
 def play_sound(SOUND):
     pygame.mixer.init()
     pygame.mixer.music.load(PathToSounds + SOUND)
@@ -290,6 +359,7 @@ def Multiple_Choice_Correct_Text_From_Image():
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
 
+
 # Screens
 
 def Menú_configuración():
@@ -369,12 +439,32 @@ def Reuglaro_Verbos_Examen_Screen():
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=1000,column=0)
 
+def Story_Screen():
+    clear_window(window)
+    Story_Words_Spanish = "Deja que te cuente una historia sobre un pollito. Su nombre es Pollito Tito. Él vive en un gallinero pequeño y normal en un barrio pequeño y normal."
+    Story_Words_Spanish_List = Story_Words_Spanish.split(" ")
+    numero = 0
+    for word_i in Story_Words_Spanish_List:
+        first_Word = tk.Label(window, text = word_i)
+        first_Word.grid(row=0,column=numero)
+        ro = db_curs.execute('select * from SpanishWordTranslations WHERE "Spanish Word Exact" = "' + word_i.lower() + '";')
+        WORDZOS = ro.fetchall()
+        if not WORDZOS:  # Check if WORDZOS is empty
+            CreateTextToolTip(first_Word, text="Failed")
+        else:
+            CreateTextToolTip(first_Word, text=WORDZOS)
+        numero += 1
+    
+
+    Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
+    Main_Menu_Button.grid(row=1000,column=0)
+
 
 
 
 def Main_Menu_Screen():
     clear_window(window)
-    Label_Home_Screen = tk.Label(window, text="The Thousand")
+    Label_Home_Screen = tk.Label(window, text="The Little Language App")
     Label_Home_Screen.grid(row=0,column=0)
 
     Button_Activity_1 = tk.Button(window, text = "el audio a la imagen", command=Correct_Image_From_Audio)
@@ -398,13 +488,29 @@ def Main_Menu_Screen():
     Button_Activity_7 = tk.Button(window, text = "practicar", command=Reuglaro_Verbos_Examen_Screen)
     Button_Activity_7.grid(row=6,column=2)
 
-    Button_Activity_8 = tk.Button(window, text = "el cuento", command=Menú_configuración)
+    Button_Activity_8 = tk.Button(window, text = "el cuento", command=Story_Screen)
     Button_Activity_8.grid(row=7,column=1)
 
     Button_Activity_9 = tk.Button(window, text = "Menú configuración", command=Menú_configuración)
     Button_Activity_9.grid(row=8,column=1)
+
+    text_btn = tk.Button(window, text="Hover over me for text")
+    text_btn.grid(row=10,column=0,padx=10, pady=10)
+    CreateTextToolTip(text_btn, "This is a text tooltip")
+
+    image_btn = tk.Button(window, text="Hover over me for image")
+    image_btn.grid(row=11,column=0,padx=10, pady=10)
+    CreateImageToolTip(image_btn, PathToImages + "bottle.png")
+
     
 # Working On this part
+
+def Words_In_Context_Screen(Spanish_Word):
+    clear_window(window)
+    Spanish_Word_Label = tk.Label(window,text=Spanish_Word)
+    Spanish_Word_Label.grid(row=0,column=0)
+    # In this screen you will be able to access contextually correct situations in which the word or phrase is used.
+
 
 window = tk.Tk()
 window.title("The Little Language App")
