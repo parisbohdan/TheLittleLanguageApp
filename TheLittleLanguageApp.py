@@ -32,6 +32,32 @@ Endings_ER = ("o","es","e","emos","eis","en")
 Endings_IR = ("o","es","e","imos","ís","en")
 Persona = ("Yo","Tú","Él-Ella-Usted","Nosotros","Vosotros","Ustedes")
 
+def ResetKnownWords():
+    table_of_known_words = "KnownWords"
+    # SQL command to delete all records from the specified table
+    delete_query = f'DELETE FROM {table_of_known_words};'
+    # Execute the SQL command
+    db_curs.execute(delete_query)
+
+    # Commit the changes
+    db_conn.commit()
+    
+    print(f"All records from '{table_of_known_words}' have been deleted.")
+
+def AddToKnownWords(SpanishWord):
+    table_of_known_words = "KnownWords"
+    table_of_available_words = "SpanishWordsAvailable"
+    TransferFunction = db_curs.execute(f'select * from {table_of_available_words} WHERE "SpanishWord" = "{SpanishWord}";')
+    TransferFunctionRESULT = TransferFunction.fetchall()
+    if not TransferFunctionRESULT:  # Check if WORDZOS is empty
+        print("Failed") # Must elaborate more
+    else:
+        print(TransferFunctionRESULT[0][0])
+        insert_query = f'INSERT INTO {table_of_known_words} (SpanishWord, SpanishWordThe, EnglishWord) VALUES ("{TransferFunctionRESULT[0][0]}","{TransferFunctionRESULT[0][1]}","{TransferFunctionRESULT[0][2]}");'
+        db_curs.execute(insert_query)
+        db_conn.commit()
+
+
 ############################## The following code is thanks to https://stackoverflow.com/users/8295318/squareroot17 and chatGPT 4.
 class ToolTip(object):
 
@@ -359,6 +385,9 @@ def Multiple_Choice_Correct_Text_From_Image():
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
 
+def Correct_English_From_Spanish_Text(): #Needs work on this
+    clear_window(window)
+
 
 # Screens
 
@@ -367,6 +396,9 @@ def Menú_configuración():
 
     Intensity_Slider = tk.Scale(window)
     Intensity_Slider.grid(row=0,column=0)
+
+    Reset_Known_Words_Btn = tk.Button(window,text="restablecer vocabulario",command=ResetKnownWords)
+    Reset_Known_Words_Btn.grid(row=1,column=0)
     
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
@@ -502,6 +534,7 @@ def Main_Menu_Screen():
     image_btn.grid(row=11,column=0,padx=10, pady=10)
     CreateImageToolTip(image_btn, PathToImages + "bottle.png")
 
+    AddToKnownWords("cama")
     
 # Working On this part
 
