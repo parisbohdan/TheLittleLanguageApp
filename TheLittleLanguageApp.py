@@ -1,5 +1,7 @@
 import tkinter as tk
 import time
+import math
+from datetime import date
 import pyautogui
 from PIL import Image, ImageTk
 from tkinter import PhotoImage
@@ -9,28 +11,55 @@ import pygame
 import sqlite3
 db_conn = sqlite3.connect('Database/TLLA.db')
 db_curs = db_conn.cursor()
+tb_XP = "ExperiencePointsTable"
 
 PathToSounds = "C:/Users/bohda\Documents/Python Codes/TheLittleLangaugeApp/Audios/"
 PathToImages = "C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images/"
 
 # Support Functions
-Regular_Verbs_Spanish = ["Abandonar - to abandon", "Abrazar - to hug", "Averiguar - to find out", "Bailar - to dance", "Bañar - to bathe", "Caminar - to walk", "Cantar - to sing",
-"Causar - to cause", "Cuidar - to take care", "Degustar - to taste", "Enviar - to send", "Hablar - to speak", "Luchar - to fight",
-"Peinar - to comb", "Tomar - to take/to drink", "Aprender - to learn", "Aparecer - to appear",
-"Barrer - to sweep", "Beber - to drink",
-"Comer - to eat", "Correr - to run",
-"Coser - to sew", "Defender - to depend",
-"Ofender - to offend", "Temer - to fear",
-"Vender - to sell", "Abrir – to open",
-"Decidir – to decide", "Descubrir – to discover",
-"Discutir – to argue", "Dividir– to split/ to divide",
-"Partir – to divide/to chop", "Partir – to leave",
-"Permitir – to allow/to permit", "Persuadir – to persuade",
-"Recibir – to get/to obtain", "Subir – to go up/to raise"]
 Endings_AR = ("o","as","a","amos","áis","an")
 Endings_ER = ("o","es","e","emos","eis","en")
 Endings_IR = ("o","es","e","imos","ís","en")
 Persona = ("Yo","Tú","Él-Ella-Usted","Nosotros","Vosotros","Ustedes")
+
+def CalculateLevel():
+    get_all_xp_query = f'select * from {tb_XP}'
+    XP_Table_Values = db_curs.execute(get_all_xp_query)
+    XP_Table_Results = XP_Table_Values.fetchall()
+    if not XP_Table_Results:
+        CurrentLevel = 1
+    else:
+        TotalXP = 0
+        for XP_ITEM in XP_Table_Results:
+            TotalXP += XP_ITEM[0]
+        CurrentLevel=1+math.floor(TotalXP/(2000)) #Needs more work
+    return CurrentLevel
+
+
+def return_current_date(): #Thanks to https://www.toppr.com/guides/python-guide/tutorials/python-date-and-time/datetime/current-datetime/how-to-get-current-date-and-time-in-python/#:~:text=Using%20the%20Datetime%20Module&text=The%20datetime%20module's%20now(),dd%20hh%3Amm%3Ass.
+    today = date.today()
+    # dd/mm/yy
+    date1 = today.strftime('%d/%m/%Y')
+    print('date1 =', date1)
+    return date1
+
+def return_current_time(): #Thanks to https://www.toppr.com/guides/python-guide/tutorials/python-date-and-time/datetime/current-datetime/how-to-get-current-date-and-time-in-python/#:~:text=Using%20the%20Datetime%20Module&text=The%20datetime%20module's%20now(),dd%20hh%3Amm%3Ass.
+    # storing the current time in the variable
+    # using now() to get current time
+    import datetime
+    return datetime.datetime.now().time()
+
+
+
+def AddXPToTable(XP_Number, ActivityID = 999999000000):
+    add_XP_to_table_query = f'INSERT INTO {tb_XP} (XP, ActivityDate, ActivityTime, ActivityID) VALUES ({XP_Number},"{return_current_date()}","{return_current_time()}",{ActivityID})'
+    db_curs.execute(add_XP_to_table_query)
+    db_conn.commit()
+
+def ResetXPTable():
+    clear_XP_table_query = f'DELETE FROM {tb_XP}'
+    db_curs.execute(clear_XP_table_query)
+    db_conn.commit()
 
 def ResetKnownWords():
     table_of_known_words = "KnownWords"
@@ -290,11 +319,13 @@ def Correct_Name_Phrase_From_Image():
     Main_Menu_Button.grid(row=10,column=0)
 
 def Correct_Image_From_Text():
+    ActivityID = 111111000001
     def Correct_Answer_Picked():
         label_correct = tk.Label(window, text="correcto")
         label_correct.grid(row=3,column=0)
         button_next_question = tk.Button(window, text="próxima pregunta", command=lambda: Correct_Image_From_Text())
         button_next_question.grid(row=4,column=0)
+        AddXPToTable(1,ActivityID)
 
     def Incorrect_Answer_Picked():
         label_incorrect = tk.Label(window, text="no correcto")
@@ -302,19 +333,19 @@ def Correct_Image_From_Text():
     
     clear_window(window)
     Chosen_Images = []
-    for i in range(0,4):
+    for i in range(0,9):
         image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
         while image_name_to_add in Chosen_Images:
             image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
         Chosen_Images.append(image_name_to_add)
-    Correct_Image, Image_2, Image_3, Image_4 = Chosen_Images[0],Chosen_Images[1],Chosen_Images[2],Chosen_Images[3]
-    global tk_image_correct, tk_image_2, tk_image_3, tk_image_4
+    Correct_Image, Image_2, Image_3, Image_4, Image_5, Image_6, Image_7, Image_8, Image_9 = Chosen_Images[0],Chosen_Images[1],Chosen_Images[2],Chosen_Images[3],Chosen_Images[4],Chosen_Images[5],Chosen_Images[6],Chosen_Images[7],Chosen_Images[8]
+    global tk_image_correct, tk_image_2, tk_image_3, tk_image_4, tk_image_5, tk_image_6, tk_image_7, tk_image_8, tk_image_9
     image_name_label = tk.Label(window, text=Correct_Image[:-4])
     image_name_label.grid(row=0,column=0)
 
     # Generate random grid 2x2
-    Grid_System_Row = Random_Grid_Generate_Solo(2)
-    Grid_System_Col = Random_Grid_Generate_Solo(2)
+    Grid_System_Row = Random_Grid_Generate_Solo(3)
+    Grid_System_Col = Random_Grid_Generate_Solo(3)
 
     image_correct = resize_image_to_height(PathToImages + Correct_Image, 200)
     tk_image_correct = ImageTk.PhotoImage(image_correct)
@@ -329,12 +360,37 @@ def Correct_Image_From_Text():
     image_3 = resize_image_to_height(PathToImages + Image_3, 200)
     tk_image_3 = ImageTk.PhotoImage(image_3)
     button_image_3 = tk.Button(window, image=tk_image_3, command=Incorrect_Answer_Picked)
-    button_image_3.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[0])
+    button_image_3.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[2])
 
     image_4 = resize_image_to_height(PathToImages + Image_4, 200)
     tk_image_4 = ImageTk.PhotoImage(image_4)
     button_image_4 = tk.Button(window, image=tk_image_4, command=Incorrect_Answer_Picked)
-    button_image_4.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
+    button_image_4.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[0])
+
+    image_5 = resize_image_to_height(PathToImages + Image_5, 200)
+    tk_image_5 = ImageTk.PhotoImage(image_5)
+    button_image_5 = tk.Button(window, image=tk_image_5, command=Incorrect_Answer_Picked)
+    button_image_5.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
+
+    image_6 = resize_image_to_height(PathToImages + Image_6, 200)
+    tk_image_6 = ImageTk.PhotoImage(image_6)
+    button_image_6 = tk.Button(window, image=tk_image_6, command=Incorrect_Answer_Picked)
+    button_image_6.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[2])
+
+    image_7 = resize_image_to_height(PathToImages + Image_7, 200)
+    tk_image_7 = ImageTk.PhotoImage(image_7)
+    button_image_7 = tk.Button(window, image=tk_image_7, command=Incorrect_Answer_Picked)
+    button_image_7.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[0])
+
+    image_8 = resize_image_to_height(PathToImages + Image_8, 200)
+    tk_image_8 = ImageTk.PhotoImage(image_8)
+    button_image_8 = tk.Button(window, image=tk_image_8, command=Incorrect_Answer_Picked)
+    button_image_8.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[1])
+
+    image_9 = resize_image_to_height(PathToImages + Image_9, 200)
+    tk_image_9 = ImageTk.PhotoImage(image_9)
+    button_image_9 = tk.Button(window, image=tk_image_9, command=Incorrect_Answer_Picked)
+    button_image_9.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[2])
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
@@ -399,6 +455,9 @@ def Menú_configuración():
 
     Reset_Known_Words_Btn = tk.Button(window,text="restablecer vocabulario",command=ResetKnownWords)
     Reset_Known_Words_Btn.grid(row=1,column=0)
+
+    Reset_XP_Table_Btn = tk.Button(window,text="restablecer XP",command=ResetXPTable)
+    Reset_XP_Table_Btn.grid(row=2,column=0)
     
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
@@ -440,31 +499,46 @@ def Regularo_Verbos_Screen():
 def Reuglaro_Verbos_Examen_Screen():
     clear_window(window)
     def check_answers(answers):
+        XP_Gained = 0
         for numero in range(10):
-            WRITE_ANSWERS = tk.Label(text=answers[numero])
-            WRITE_ANSWERS.grid(row=numero,column=2)
+            if Entry_Box_List[numero].get() == Answer_Values[numero]:
+                WRITE_ANSWERS = tk.Label(text="correcto")
+                WRITE_ANSWERS.grid(row=numero,column=2)
+                Entry_Box_List[numero].configure(bg='green')
+                XP_Gained+=1
+            else:
+                WRITE_ANSWERS = tk.Label(text=answers[numero])
+                WRITE_ANSWERS.grid(row=numero,column=2)
+                XP_Gained-=1
+
+        print(Entry_Box_List[0].get())
+        if XP_Gained>0:
+            AddXPToTable(XP_Gained)
+
     Answer_Values = list()
+    Entry_Box_List = []
     for i in range(10):
-        Spanish_Verb_Chosen = Regular_Verbs_Spanish[random.randint(0,len(Regular_Verbs_Spanish)-1)]
+        regular_verbs_query = f'SELECT * FROM Regular_Verbs'
+        Regular_Verbs_Spanish_Values = db_curs.execute(regular_verbs_query).fetchall()
+        Spanish_Verb_Chosen = Regular_Verbs_Spanish_Values[random.randint(0,len(Regular_Verbs_Spanish_Values)-1)][0]
         Persona_Number = random.randint(0,len(Persona)-1)
         Persona_Chosen = Persona[Persona_Number]
-        Spanish_Verb = Spanish_Verb_Chosen.split("r ")[0]
-        Spanish_Verb_Fixed = Spanish_Verb + "r"
-        Verb_Standard = tk.Label(text=Persona_Chosen + " " + Spanish_Verb + "r")
+        Verb_Standard = tk.Label(text=Persona_Chosen + " " + Spanish_Verb_Chosen)
         Verb_Standard.grid(row=i,column=0)
-        Answer_Item = tk.Entry()
+        Answer_Item = tk.Entry(name="entryno"+str(i))
         Answer_Item.grid(row=i,column=1)
+        Entry_Box_List.append(Answer_Item)
         
-        if Spanish_Verb_Fixed[-2:] == "ar":
+        if Spanish_Verb_Chosen[-2:] == "ar":
             Ending_Letters = Endings_AR[Persona_Number]
-        elif Spanish_Verb_Fixed[-2:] == "er":
+        elif Spanish_Verb_Chosen[-2:] == "er":
             Ending_Letters = Endings_ER[Persona_Number]
-        elif Spanish_Verb_Fixed[-2:] == "ir":
+        elif Spanish_Verb_Chosen[-2:] == "ir":
             Ending_Letters = Endings_IR[Persona_Number]
         else:
             Ending_Letters = "NO"
 
-        Answer_Values.append(Spanish_Verb_Fixed[:-2]+ Ending_Letters)
+        Answer_Values.append(Spanish_Verb_Chosen[:-2]+ Ending_Letters)
     Button_Check_It = tk.Button(text="Check Answers", command=lambda: check_answers(Answer_Values))
     Button_Check_It.grid(row=99,column=0)
 
@@ -498,6 +572,10 @@ def Main_Menu_Screen():
     clear_window(window)
     Label_Home_Screen = tk.Label(window, text="The Little Language App")
     Label_Home_Screen.grid(row=0,column=0)
+    Label_Current_Level = tk.Label(window, text = "Level:")
+    Label_Current_Level.grid(row=0,column=1)
+    Level_Value = tk.Label(window, text = str(CalculateLevel()))
+    Level_Value.grid(row=0,column=2)
 
     Button_Activity_1 = tk.Button(window, text = "el audio a la imagen", command=Correct_Image_From_Audio)
     Button_Activity_1.grid(row=1,column=1)
@@ -534,7 +612,6 @@ def Main_Menu_Screen():
     image_btn.grid(row=11,column=0,padx=10, pady=10)
     CreateImageToolTip(image_btn, PathToImages + "bottle.png")
 
-    AddToKnownWords("cama")
     
 # Working On this part
 
@@ -557,3 +634,7 @@ sound_files = get_sound_filenames(sounds_path)
 Main_Menu_Screen()
 
 window.mainloop()
+
+# Practicing words you know in any of the activities is 1XP for each correct answer. (Maybe -1 for each incorrect answer)
+# Learning words with any activity is 2 XP per correct answer
+# Correctly answering sentences is 3 XP per correct answer
