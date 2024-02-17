@@ -1,20 +1,23 @@
 import tkinter as tk
 import time
 import math
-from datetime import date
+from datetime import date, datetime
 import pyautogui
 from PIL import Image, ImageTk
 from tkinter import PhotoImage
 import os
+import io
 import random
 import pygame
 import sqlite3
 db_conn = sqlite3.connect('Database/TLLA.db')
 db_curs = db_conn.cursor()
 tb_XP = "ExperiencePointsTable"
+tb_sentences_or_phrases = "SentenceOrPhraseTable"
+ImagesTable = "Images"
 
-PathToSounds = "C:/Users/bohda\Documents/Python Codes/TheLittleLangaugeApp/Audios/"
-PathToImages = "C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images/"
+global instructions_still_to_execute
+instructions_still_to_execute = []
 
 # Support Functions
 Endings_AR = ("o","as","a","amos","áis","an")
@@ -23,24 +26,28 @@ Endings_IR = ("o","es","e","imos","ís","en")
 Persona = ("Yo","Tú","Él-Ella-Usted","Nosotros","Vosotros","Ustedes")
 
 def CalculateLevel():
-    get_all_xp_query = f'select * from {tb_XP}'
-    XP_Table_Values = db_curs.execute(get_all_xp_query)
-    XP_Table_Results = XP_Table_Values.fetchall()
-    if not XP_Table_Results:
-        CurrentLevel = 1
-    else:
-        TotalXP = 0
-        for XP_ITEM in XP_Table_Results:
-            TotalXP += XP_ITEM[0]
-        CurrentLevel=1+math.floor(TotalXP/(2000)) #Needs more work
+    def GrabTotalXP():
+        get_all_xp_query = f'select * from {tb_XP}'
+        XP_Table_Values = db_curs.execute(get_all_xp_query)
+        XP_Table_Results = XP_Table_Values.fetchall()
+        if not XP_Table_Results:
+            TotalXP = 0
+        else:
+            TotalXP = 0
+            for XP_ITEM in XP_Table_Results:
+                TotalXP += XP_ITEM[0]
+        return TotalXP
+    
+    CurrentLevel=1+math.floor(GrabTotalXP()/(2000)) #Needs more work
     return CurrentLevel
+    
 
 
 def return_current_date(): #Thanks to https://www.toppr.com/guides/python-guide/tutorials/python-date-and-time/datetime/current-datetime/how-to-get-current-date-and-time-in-python/#:~:text=Using%20the%20Datetime%20Module&text=The%20datetime%20module's%20now(),dd%20hh%3Amm%3Ass.
     today = date.today()
     # dd/mm/yy
     date1 = today.strftime('%d/%m/%Y')
-    print('date1 =', date1)
+    #print('date1 =', date1)
     return date1
 
 def return_current_time(): #Thanks to https://www.toppr.com/guides/python-guide/tutorials/python-date-and-time/datetime/current-datetime/how-to-get-current-date-and-time-in-python/#:~:text=Using%20the%20Datetime%20Module&text=The%20datetime%20module's%20now(),dd%20hh%3Amm%3Ass.
@@ -150,6 +157,46 @@ def CreateImageToolTip(widget, image_path):
     widget.bind('<Enter>', enter)
     widget.bind('<Leave>', leave)
 
+def GrabImage(image_id=1):
+    db_curs.execute("SELECT ImageData FROM Images WHERE id = ?", (image_id,))
+    image_data = db_curs.fetchone()
+    if image_data is not None:
+        # Display the image using PIL and Tkinter
+        image = Image.open(io.BytesIO(image_data[0]))
+        tk_image_in_window = ImageTk.PhotoImage(image)
+        return tk_image_in_window
+    else:
+        print("Image not found.")
+
+def GrabImageTags(image_id=1):
+    db_curs.execute("SELECT SpanishImageTags FROM Images WHERE id = ?", (image_id,))
+    SpanishImageTags = db_curs.fetchone()
+    if SpanishImageTags is not None:
+        # Display the image using PIL and Tkinter
+        return SpanishImageTags
+    else:
+        print("Image not found.")
+
+def Play_Sound_Blob(id=1):
+    # SQL query to select the MP3 blob from Images table
+    query = "SELECT AudioData FROM Images WHERE ID = ?"
+    db_curs.execute(query, (id,))
+    
+    # Fetch the result
+    result = db_curs.fetchone()
+    if result:
+        audio_blob = result[0]
+        # Assuming you want to save the MP3 to a file
+        with open(f'sound_{id}.mp3', 'wb') as file:
+            file.write(audio_blob)
+        pygame.mixer.init()
+        pygame.mixer.music.load(f"sound_{id}.mp3")
+        pygame.mixer.music.play()
+        time.sleep(5)
+        pygame.mixer.music.unload()
+        os.remove(f'sound_{id}.mp3')
+    else:
+        print(f"No record found with ID {id}")
 
 def play_sound(SOUND):
     pygame.mixer.init()
@@ -226,7 +273,6 @@ def Random_Grid_Generate_Solo(Length):
     return Grid_Layout
 
 # Questions (templates)
-
 def Correct_Image_From_Audio():
     def Correct_Answer_Chosen():
         label_correct = tk.Label(window, text="correcto")
@@ -239,9 +285,48 @@ def Correct_Image_From_Audio():
         label_incorrect.grid(row=3,column=0)    
     
     clear_window(window)
-    Audio_Sample = sound_files[random.randint(0,len(sound_files)-1)]
-    Random_Images = []
-    for i in range(0,3):
+    Random_IDs = []
+    # Firstly determine which of the images has a sound recording associated with it.
+    db_curs.execute('select * from Images WHERE AudioData not NULL')
+    AllImagesWithSoundResult = db_curs.fetchall()
+    RandomIDTaken = AllImagesWithSoundResult[random.randint(0,len(AllImagesWithSoundResult)-1)][2]
+    print(str(RandomIDTaken))
+
+    RandomIDsList = [RandomIDTaken]
+    for i in range(9):
+        IDRand = random.randint(1,14)
+        while IDRand in RandomIDsList:
+            IDRand = random.randint(1,14)
+        RandomIDsList.append(IDRand)
+
+
+    Play_Sound_Blob(RandomIDTaken)
+    PlaySoundButton = tk.Button(window,text="Reproducir sonido", command=lambda: Play_Sound_Blob(RandomIDTaken))
+    PlaySoundButton.grid(row=0,column=0)
+
+    global imageslist
+    imageslist = []
+
+    for id in RandomIDsList:
+        imageslist.append(GrabImage(id))
+
+    # Generate random grid 2x2
+    Grid_System_Row = Random_Grid_Generate_Solo(2)
+    Grid_System_Col = Random_Grid_Generate_Solo(5)
+
+    for i in range(2):
+        for j in range(5):
+            if i ==0 and j==0:
+                button_image_4 = tk.Button(window, image=imageslist[i*5+j], command=Correct_Answer_Chosen)
+                button_image_4.grid(row=Grid_System_Row[i]+1,column=Grid_System_Col[j])
+            else:
+                button_image_4 = tk.Button(window, image=imageslist[i*5+j], command=Incorrect_Answer_Chosen)
+                button_image_4.grid(row=Grid_System_Row[i]+1,column=Grid_System_Col[j])
+
+
+    
+
+    """for i in range(0,3):
         image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
         while (image_name_to_add in Random_Images) or (image_name_to_add == Audio_Sample[:-4] + ".jpg"):
             image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
@@ -277,51 +362,56 @@ def Correct_Image_From_Audio():
     tk_image_4 = ImageTk.PhotoImage(image_4)
     button_image_4 = tk.Button(window, image=tk_image_4, command=Incorrect_Answer_Chosen)
     button_image_4.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
-
+"""
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
-
+    
+# Working on this
 def Correct_Name_Phrase_From_Image():
-    def Check_Answer(image_name):
+    def Check_Answer(image_tags):
         answered = Answer_Box.get()
-        if (answered == image_name[:-4]):
-            correct_label = tk.Label(window, text="correcto")
-            correct_label.grid(row=3,column=0)
-            Image_Chosen = image_files[random.randint(0,len(image_files)-1)]
+        correct_words = image_tags.split(";")
+        answered_words = answered.split(" ")
+        for correct_word in correct_words:
+            for answered_word in answered_words:
+                if correct_word == answered_word:
+                    correct_words.remove(correct_word)
+                    pass
+        if len(correct_words)==0:
             continue_button = tk.Button(window, text="próxima pregunta",command=lambda: Correct_Name_Phrase_From_Image())
             continue_button.grid(row=4,column=0)
             return(1) # Correctly answered
-
         else:
             incorrect_label = tk.Label(window, text="no correcto")
             incorrect_label.grid(row=3,column=0)
             return(0) # Incorrect answer
     clear_window(window)
-    image_name = image_files[random.randint(0,len(image_files)-1)]
-    global tk_image  # Declare tk_image as global
-    image_spanish = Image.open(PathToImages + image_name)
-    tk_image = ImageTk.PhotoImage(image_spanish)
-    label = tk.Label(window, image=tk_image)
+    
+    global ImageUsed  # Declare tk_image as global
+    ID_USED = random.randint(1,14)
+    ImageUsed = GrabImage(ID_USED)
+    label = tk.Label(window, image=ImageUsed)
     label.grid(row=0,column=0)
 
     global Answer_Box
     Answer_Box = tk.Entry(window)
     Answer_Box.grid(row=1,column=0)
 
-    word_number_count = len(image_name.split(" "))
+    word_number_count = len(GrabImageTags(ID_USED)[0].split(";"))
     Answer_Numbers = tk.Label(window, text=word_number_count)
     Answer_Numbers.grid(row=1,column=1)
 
-    Submit_Button = tk.Button(window,text="Submit",command=lambda: Check_Answer(image_name))
+    Submit_Button = tk.Button(window,text="Submit",command=lambda: Check_Answer(GrabImageTags(ID_USED)))
     Submit_Button.grid(row=2,column=0)
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
 
+# Sorted from DB
 def Correct_Image_From_Text():
     ActivityID = 111111000001
     def Correct_Answer_Picked():
-        label_correct = tk.Label(window, text="correcto")
+        label_correct = tk.Label(window, text="      correcto      ")
         label_correct.grid(row=3,column=0)
         button_next_question = tk.Button(window, text="próxima pregunta", command=lambda: Correct_Image_From_Text())
         button_next_question.grid(row=4,column=0)
@@ -333,74 +423,67 @@ def Correct_Image_From_Text():
     
     clear_window(window)
     Chosen_Images = []
-    for i in range(0,9):
-        image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
-        while image_name_to_add in Chosen_Images:
-            image_name_to_add = image_files[random.randint(0,len(image_files)-1)]
-        Chosen_Images.append(image_name_to_add)
-    Correct_Image, Image_2, Image_3, Image_4, Image_5, Image_6, Image_7, Image_8, Image_9 = Chosen_Images[0],Chosen_Images[1],Chosen_Images[2],Chosen_Images[3],Chosen_Images[4],Chosen_Images[5],Chosen_Images[6],Chosen_Images[7],Chosen_Images[8]
-    global tk_image_correct, tk_image_2, tk_image_3, tk_image_4, tk_image_5, tk_image_6, tk_image_7, tk_image_8, tk_image_9
-    image_name_label = tk.Label(window, text=Correct_Image[:-4])
+    Random_Numbers = []
+    Max_Number = 14
+    for i in range(0,10):
+        Random_Val = random.randint(0+1,Max_Number-1)
+        while Random_Val in Random_Numbers:
+            Random_Val = random.randint(0+1,Max_Number-1)
+        Random_Numbers.append(Random_Val)
+    print(str(len(Random_Numbers)))
+    for rand in Random_Numbers:    
+        Chosen_Images.append(GrabImage(rand))
+    global Correct_Image, Image_2, Image_3, Image_4, Image_5, Image_6, Image_7, Image_8, Image_9, Image10
+    Correct_Image, Image_2, Image_3, Image_4, Image_5, Image_6, Image_7, Image_8, Image_9, Image10 = Chosen_Images[0],Chosen_Images[1],Chosen_Images[2],Chosen_Images[3],Chosen_Images[4],Chosen_Images[5],Chosen_Images[6],Chosen_Images[7],Chosen_Images[8],Chosen_Images[9] 
+    image_name_label = tk.Label(window, text=GrabImageTags(Random_Numbers[0])[0])
     image_name_label.grid(row=0,column=0)
 
-    # Generate random grid 2x2
-    Grid_System_Row = Random_Grid_Generate_Solo(3)
-    Grid_System_Col = Random_Grid_Generate_Solo(3)
+    # Generate random grid 3x3
+    Grid_System_Row = Random_Grid_Generate_Solo(2)
+    Grid_System_Col = Random_Grid_Generate_Solo(5)
 
-    image_correct = resize_image_to_height(PathToImages + Correct_Image, 200)
-    tk_image_correct = ImageTk.PhotoImage(image_correct)
-    button_correct = tk.Button(window, image=tk_image_correct, command=Correct_Answer_Picked)
+    button_correct = tk.Button(window, image=Correct_Image, command=Correct_Answer_Picked)
     button_correct.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[0])
 
-    image_2 = resize_image_to_height(PathToImages + Image_2, 200)
-    tk_image_2 = ImageTk.PhotoImage(image_2)
-    button_image_2 = tk.Button(window, image=tk_image_2, command=Incorrect_Answer_Picked)
+    button_image_2 = tk.Button(window, image=Image_2, command=Incorrect_Answer_Picked)
     button_image_2.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[1])
     
-    image_3 = resize_image_to_height(PathToImages + Image_3, 200)
-    tk_image_3 = ImageTk.PhotoImage(image_3)
-    button_image_3 = tk.Button(window, image=tk_image_3, command=Incorrect_Answer_Picked)
+    button_image_3 = tk.Button(window, image=Image_3, command=Incorrect_Answer_Picked)
     button_image_3.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[2])
 
-    image_4 = resize_image_to_height(PathToImages + Image_4, 200)
-    tk_image_4 = ImageTk.PhotoImage(image_4)
-    button_image_4 = tk.Button(window, image=tk_image_4, command=Incorrect_Answer_Picked)
-    button_image_4.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[0])
+    button_image_4 = tk.Button(window, image=Image_4, command=Incorrect_Answer_Picked)
+    button_image_4.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[3])
 
-    image_5 = resize_image_to_height(PathToImages + Image_5, 200)
-    tk_image_5 = ImageTk.PhotoImage(image_5)
-    button_image_5 = tk.Button(window, image=tk_image_5, command=Incorrect_Answer_Picked)
-    button_image_5.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
+    button_image_5 = tk.Button(window, image=Image_5, command=Incorrect_Answer_Picked)
+    button_image_5.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[4])
 
-    image_6 = resize_image_to_height(PathToImages + Image_6, 200)
-    tk_image_6 = ImageTk.PhotoImage(image_6)
-    button_image_6 = tk.Button(window, image=tk_image_6, command=Incorrect_Answer_Picked)
-    button_image_6.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[2])
+    button_image_6 = tk.Button(window, image=Image_6, command=Incorrect_Answer_Picked)
+    button_image_6.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[0])
 
-    image_7 = resize_image_to_height(PathToImages + Image_7, 200)
-    tk_image_7 = ImageTk.PhotoImage(image_7)
-    button_image_7 = tk.Button(window, image=tk_image_7, command=Incorrect_Answer_Picked)
-    button_image_7.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[0])
+    button_image_7 = tk.Button(window, image=Image_7, command=Incorrect_Answer_Picked)
+    button_image_7.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
 
-    image_8 = resize_image_to_height(PathToImages + Image_8, 200)
-    tk_image_8 = ImageTk.PhotoImage(image_8)
-    button_image_8 = tk.Button(window, image=tk_image_8, command=Incorrect_Answer_Picked)
-    button_image_8.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[1])
+    button_image_8 = tk.Button(window, image=Image_8, command=Incorrect_Answer_Picked)
+    button_image_8.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[2])
 
-    image_9 = resize_image_to_height(PathToImages + Image_9, 200)
-    tk_image_9 = ImageTk.PhotoImage(image_9)
-    button_image_9 = tk.Button(window, image=tk_image_9, command=Incorrect_Answer_Picked)
-    button_image_9.grid(row=Grid_System_Row[2]+1,column=Grid_System_Col[2])
+    button_image_9 = tk.Button(window, image=Image_9, command=Incorrect_Answer_Picked)
+    button_image_9.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[3])
+
+    button_image_10 = tk.Button(window, image=Image_9, command=Incorrect_Answer_Picked)
+    button_image_10.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[4])
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
 
+# Sorted from DB
 def Multiple_Choice_Correct_Text_From_Image():
+    ActivityID = 111111000002
     def Correct_Answer_Supplied():
         label_correct = tk.Label(window, text="  correcto  ")
         label_correct.grid(row=4,column=0)
         button_next_question = tk.Button(window, text="proxima pregunta",command=Multiple_Choice_Correct_Text_From_Image)
         button_next_question.grid(row=5,column=0)
+        AddXPToTable(1,ActivityID)
 
     def Incorrect_Answer_Supplied():
         label_INcorrect = tk.Label(window, text=" no correcto")
@@ -408,35 +491,38 @@ def Multiple_Choice_Correct_Text_From_Image():
     
     clear_window(window)
     global tk_image_spanish
-    # Generate random grid 2x2
+    # Generate random grid 3x3
     Grid_System_Row = Random_Grid_Generate_Solo(2)
-    Grid_System_Col = Random_Grid_Generate_Solo(2)
+    Grid_System_Col = Random_Grid_Generate_Solo(5)
 
-    Other_Image_Texts = []
-    for i in range(0,4):
-        Text_To_Add = image_files[random.randint(0,len(image_files)-1)]
-        while Text_To_Add in Other_Image_Texts:
-            Text_To_Add = image_files[random.randint(0,len(image_files)-1)]
-        Other_Image_Texts.append(Text_To_Add)
+    Random_IDs = []
+    Random_Tags = []
+
+    for i in range(0,10):
+        Rand_ID = random.randint(1,14)
+        while Rand_ID in Random_IDs:
+            Rand_ID = random.randint(1,14)
+        Random_IDs.append(Rand_ID)
+        Random_Tags.append(GrabImageTags(Rand_ID)[0])
     
-    image_spanish=Other_Image_Texts[3]
+    global image_spanish
+    image_spanish=GrabImage(Random_IDs[9])
     
-    es_image_correct = resize_image_to_height(PathToImages + image_spanish, 200)
-    tk_image_spanish = ImageTk.PhotoImage(es_image_correct)
-    label_question = tk.Label(window, image=tk_image_spanish)
+    label_question = tk.Label(window, image=image_spanish)
     label_question.grid(row=0,column=0)
 
-    button_correct = tk.Button(window, text=image_spanish[:-4], command=Correct_Answer_Supplied)
-    button_correct.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[0])
+    button_correct = tk.Button(window, text=GrabImageTags(Random_IDs[9]), command=Correct_Answer_Supplied)
+    button_correct.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[4])
 
-    button_incorrect_1 = tk.Button(window, text=Other_Image_Texts[0][:-4], command=Incorrect_Answer_Supplied)
-    button_incorrect_1.grid(row=Grid_System_Row[0]+1,column=Grid_System_Col[1])
+    for i in range(2):
+        for j in range(5):
+            if i == 1 and j == 4:
+                pass
+            else:
+                button_incorrect_item = tk.Button(window, text=GrabImageTags(Random_IDs[i*3+j])[0], command=Incorrect_Answer_Supplied)
+                button_incorrect_item.grid(row=Grid_System_Row[i]+1,column=Grid_System_Col[j])
 
-    button_incorrect_2 = tk.Button(window, text=Other_Image_Texts[1][:-4], command=Incorrect_Answer_Supplied)
-    button_incorrect_2.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[0])
-
-    button_incorrect_3 = tk.Button(window, text=Other_Image_Texts[2][:-4], command=Incorrect_Answer_Supplied)
-    button_incorrect_3.grid(row=Grid_System_Row[1]+1,column=Grid_System_Col[1])
+    
     
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
@@ -444,8 +530,97 @@ def Multiple_Choice_Correct_Text_From_Image():
 def Correct_English_From_Spanish_Text(): #Needs work on this
     clear_window(window)
 
+#Sorted from the DB
+def Spanish_Phrase_From_English_Written():
+    ActivityID = 111111000011
+    clear_window(window)
+    def GetPhrasePair():
+        AllPhrasesSentences = db_curs.execute(f'select * from {tb_sentences_or_phrases}')
+        AllPhrasesSentencesRESULT = AllPhrasesSentences.fetchall()
+        if not AllPhrasesSentencesRESULT:  # Check if WORDZOS is empty
+            print("Failed") # Must elaborate more
+            return -1
+        else:
+            return AllPhrasesSentencesRESULT[random.randint(0,len(AllPhrasesSentencesRESULT)-1)]
 
-# Screens
+    def CheckAnswer(Correct_Spanish_Sentence, Given_Sentence):
+        Percentage_Correct_Label = tk.Label(window, text = "            ")
+        Percentage_Correct_Label.grid(row=4,column=0)
+        Broken_Down_Correct_Sentence = Correct_Spanish_Sentence.split(" ")
+        Broken_Down_Given_Sentence = Given_Sentence.split(" ")
+        Correctness = 0
+        Max_Correctness = len(Broken_Down_Correct_Sentence)
+        for i in range(sorted([len(Broken_Down_Correct_Sentence),len(Broken_Down_Given_Sentence)])[0]):
+            if Broken_Down_Correct_Sentence[i] == Broken_Down_Given_Sentence[i]:
+                Correctness += 1
+        Percentage_Correct = (Correctness/Max_Correctness) * 100
+        Percentage_Correct_Label = tk.Label(window, text = "     " + str(Percentage_Correct) + "%     ")
+        Percentage_Correct_Label.grid(row=4,column=0)
+        if Percentage_Correct == 100:
+            AddXPToTable(5,ActivityID)
+            Button_next = tk.Button(text="proxima pregunta",command=Spanish_Phrase_From_English_Written)
+            Button_next.grid(row=7,column=0)
+    
+    PhraseValues = GetPhrasePair()
+    English_Phrase_Label = tk.Label(window, text = "Ingles to Español Frase")
+    English_Phrase_Label.grid(row=0,column=0)
+
+    English_Phrase_Lbl = tk.Label(window, text = PhraseValues[1])
+    English_Phrase_Lbl.grid(row=1,column=0)
+
+    Spanish_Phrase_Entry = tk.Entry(window)
+    Spanish_Phrase_Entry.grid(row=2,column=0)
+
+    Check_Answer_Button = tk.Button(window,text="prueba",command=lambda: CheckAnswer(PhraseValues[0],Spanish_Phrase_Entry.get()))
+    Check_Answer_Button.grid(row=3,column=0)
+
+
+    Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
+    Main_Menu_Button.grid(row=10,column=0)
+
+# Screens ###
+
+def Test_Image_From_DB_Screen():
+    # Assuming clear_window(window) is correctly implemented
+    clear_window(window)
+    
+    tk_image_in_window = GrabImage()
+    if tk_image_in_window:
+        label_image = tk.Label(window, image=tk_image_in_window)
+        label_image.grid(row=0, column=0)
+        
+        # Keep a reference to the image to prevent garbage collection
+        label_image.image = tk_image_in_window
+    
+# Needs work
+def Statistics_Screen():
+    clear_window(window)
+    def GrabTotalXP():
+        get_all_xp_query = f'select * from {tb_XP}'
+        XP_Table_Values = db_curs.execute(get_all_xp_query)
+        XP_Table_Results = XP_Table_Values.fetchall()
+        if not XP_Table_Results:
+            TotalXP = 0
+        else:
+            TotalXP = 0
+            for XP_ITEM in XP_Table_Results:
+                TotalXP += XP_ITEM[0]
+        return TotalXP
+    
+    XP_Lab = tk.Label(text = "XP:")
+    XP_Lab.grid(row=0,column=0)
+
+    XP_Label = tk.Label(text = str(GrabTotalXP()))
+    XP_Label.grid(row=0,column=1)
+
+    Time_Lab = tk.Label(text = "Total Time:")
+    Time_Lab.grid(row=1,column=0)
+
+    Time_Label = tk.Label(text = str("To do"))
+    Time_Label.grid(row=1,column=1)
+
+    Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
+    Main_Menu_Button.grid(row=1000,column=0)
 
 def Menú_configuración():
     clear_window(window)
@@ -459,6 +634,30 @@ def Menú_configuración():
     Reset_XP_Table_Btn = tk.Button(window,text="restablecer XP",command=ResetXPTable)
     Reset_XP_Table_Btn.grid(row=2,column=0)
     
+
+    Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
+    Main_Menu_Button.grid(row=10,column=0)
+
+def Vocab_Zone_Assorted():
+    clear_window(window)
+
+    A1_btn = tk.Button(window,text="A1 level",command=Vocabulary_Zone_Fragments)
+    A1_btn.grid(row=0,column=0)
+
+    A2_btn = tk.Button(window,text="A2 level",command=Vocabulary_Zone_Fragments)
+    A2_btn.grid(row=1,column=0)
+
+    B1_btn = tk.Button(window,text="B1 level",command=Vocabulary_Zone_Fragments)
+    B1_btn.grid(row=2,column=0)
+
+    B2_btn = tk.Button(window,text="B2 level",command=Vocabulary_Zone_Fragments)
+    B2_btn.grid(row=3,column=0)
+
+    C1_btn = tk.Button(window,text="C1 level",command=Vocabulary_Zone_Fragments)
+    C1_btn.grid(row=4,column=0)
+
+    C2_btn = tk.Button(window,text="C2 level", command=Vocabulary_Zone_Fragments)
+    C2_btn.grid(row=5,column=0)
 
     Main_Menu_Button = tk.Button(window,text="la casa",command=Main_Menu_Screen)
     Main_Menu_Button.grid(row=10,column=0)
@@ -601,16 +800,25 @@ def Main_Menu_Screen():
     Button_Activity_8 = tk.Button(window, text = "el cuento", command=Story_Screen)
     Button_Activity_8.grid(row=7,column=1)
 
-    Button_Activity_9 = tk.Button(window, text = "Menú configuración", command=Menú_configuración)
+    Button_Activity_9 = tk.Button(window, text = "Frases de Ingles a Espanol", command=Spanish_Phrase_From_English_Written)
     Button_Activity_9.grid(row=8,column=1)
 
-    text_btn = tk.Button(window, text="Hover over me for text")
-    text_btn.grid(row=10,column=0,padx=10, pady=10)
-    CreateTextToolTip(text_btn, "This is a text tooltip")
+    Button_Activity_10 = tk.Button(window, text = "Aprender", command=Vocab_Zone_Assorted)
+    Button_Activity_10.grid(row=9,column=1)
 
-    image_btn = tk.Button(window, text="Hover over me for image")
-    image_btn.grid(row=11,column=0,padx=10, pady=10)
-    CreateImageToolTip(image_btn, PathToImages + "bottle.png")
+    Button_Activity_11 = tk.Button(window, text = "Statistica", command=Statistics_Screen)
+    Button_Activity_11.grid(row=10,column=1)
+
+    Button_Activity_12 = tk.Button(window, text = "Menú configuración", command=Menú_configuración)
+    Button_Activity_12.grid(row=11,column=1)
+
+    # text_btn = tk.Button(window, text="Hover over me for text")
+    # text_btn.grid(row=12,column=0,padx=10, pady=10)
+    # CreateTextToolTip(text_btn, "This is a text tooltip")
+
+    # image_btn = tk.Button(window, text="Hover over me for image")
+    # image_btn.grid(row=13,column=0,padx=10, pady=10)
+    # CreateImageToolTip(image_btn, GrabImage(3))
 
     
 # Working On this part
@@ -626,15 +834,12 @@ window = tk.Tk()
 window.title("The Little Language App")
 window.geometry("1920x1080")
 
-images_path = 'C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Images'
-image_files = get_image_filenames(images_path)
-sounds_path = 'C:/Users/bohda/Documents/Python Codes/TheLittleLangaugeApp/Audios'
-sound_files = get_sound_filenames(sounds_path)
+# Play_Sound_Blob(1)
 
 Main_Menu_Screen()
 
 window.mainloop()
 
 # Practicing words you know in any of the activities is 1XP for each correct answer. (Maybe -1 for each incorrect answer)
-# Learning words with any activity is 2 XP per correct answer
-# Correctly answering sentences is 3 XP per correct answer
+# Learning words with any activity is 3 XP per correct answer
+# Correctly answering sentences is 5 XP per correct answer
